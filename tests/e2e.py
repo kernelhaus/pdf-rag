@@ -21,6 +21,11 @@ def die(msg, r=None):
     print("FAIL:", msg, (r.status_code, r.text[:800]) if r is not None else "")
     sys.exit(1)
 
+def is_done(d):
+    # RAGFlow 1.0: `run` is null; completion = progress 1 (success) or a terminal status.
+    return (d.get("progress") or 0) >= 1 or str(d.get("ingestion_status")).upper() in ("DONE", "FAIL", "FAILED")
+
+
 # wait for server
 for i in range(120):
     try:
@@ -74,16 +79,16 @@ last, last_change = None, time.time()
 while time.time() < deadline:
     r = requests.get(f"{H}/api/v1/datasets/{kb}/documents", headers=auth, params={"page_size": 100})
     docs = r.json()["data"]["docs"]
-    st = {d["name"]: (d.get("run"), d.get("progress"), d.get("chunk_count")) for d in docs}
+    st = {d["name"]: (d.get("ingestion_status"), d.get("progress"), d.get("chunk_count")) for d in docs}
     print(json.dumps(st)[:600])
-    if all(d.get("run") in ("DONE", "FAIL", "3", "4") for d in docs):
+    if all(is_done(d) for d in docs):
         break
     if st != last:
         last, last_change = st, time.time()
     elif time.time() - last_change > 600:
         die("no progress for 10 minutes (stalled)")
     time.sleep(20)
-bad = [d["name"] for d in docs if d.get("run") not in ("DONE", "3")]
+bad = [d["name"] for d in docs if not (is_done(d) and d.get("chunk_count", 0) > 0)]
 if bad:
     die(f"documents not DONE: {bad}")
 
