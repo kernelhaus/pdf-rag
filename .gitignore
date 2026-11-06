@@ -1,0 +1,7 @@
+test-pdfs/
+*.db
+.env
+__pycache__/
+*.pyc
+config.local.*
+dist/

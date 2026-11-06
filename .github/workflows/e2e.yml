@@ -1,0 +1,38 @@
+name: e2e-ragflow
+on:
+  workflow_dispatch:
+    inputs:
+      tei_model:
+        description: Embedding model served by the tei container
+        default: BAAI/bge-small-en-v1.5
+      ragflow_tag:
+        default: v1.0.0-rc3
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install requests tqdm
+      - name: Fetch sample PDFs
+        run: python tests/fetch_samples.py tests/samples
+      - name: Clone RAGFlow
+        run: git clone --depth 1 --branch "${{ inputs.ragflow_tag }}" https://github.com/infiniflow/ragflow.git ragflow
+      - name: Start stack
+        working-directory: ragflow/docker
+        run: |
+          sudo sysctl -w vm.max_map_count=262144
+          echo "COMPOSE_PROFILES=elasticsearch,cpu,metadata-mysql,tei-cpu" >> .env
+          echo "TEI_MODEL=${{ inputs.tei_model }}" >> .env
+          docker compose up -d
+      - name: Run e2e
+        run: python tests/e2e.py --host http://localhost --pdfs tests/samples --limit 5
+      - name: Ingest folder with our script
+        run: |
+          python ingest_folder.py --list-kb --api-key "$(cat api_key.txt)" --host http://localhost
+      - name: Logs on failure
+        if: failure()
+        working-directory: ragflow/docker
+        run: docker compose ps; docker compose logs --tail=120

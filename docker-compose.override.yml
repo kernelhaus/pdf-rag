@@ -1,0 +1,32 @@
+version: "3"
+
+# This override tunes RAGFlow for a single-user offline workstation:
+# - Binds only to localhost-reachable ports (still fine for LAN access via the
+#   machine's IP if you ever want to search from another device on the same network)
+# - Disables any telemetry/update-check calls RAGFlow services might attempt
+#   (safe no-ops if the network truly has none, but prevents log spam / retries)
+#
+# Place this file alongside RAGFlow's own docker-compose.yml (same folder) —
+# Docker Compose automatically merges a file named docker-compose.override.yml.
+
+services:
+  ragflow:
+    environment:
+      - TELEMETRY_ENABLED=false
+      - DOC_ENGINE=elasticsearch
+    restart: unless-stopped
+    # Increase if ingestion of large PDFs is slow / OOMing on the parsing step.
+    # Default RAGFlow compose already sets reasonable limits; uncomment to cap:
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 8G
+
+  mysql:
+    restart: unless-stopped
+
+  minio:
+    restart: unless-stopped
+
+  es01:
+    restart: unless-stopped
