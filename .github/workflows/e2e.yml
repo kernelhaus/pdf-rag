@@ -29,9 +29,18 @@ jobs:
           docker compose up -d
       - name: Run e2e
         run: python tests/e2e.py --host http://localhost --pdfs tests/samples --limit 5
-      - name: Ingest folder with our script
+      - name: Ingest folder with our script (resume + new-file detection)
         run: |
-          python ingest_folder.py --list-kb --api-key "$(cat api_key.txt)" --host http://localhost
+          KEY="$(cat api_key.txt)"
+          python ingest_folder.py --list-kb --api-key "$KEY" --host http://localhost
+          mkdir -p lib/sub && cp $(ls tests/samples/*.pdf | sed -n 6,8p) lib/ && cp $(ls tests/samples/*.pdf | sed -n 9p) lib/sub/
+          python ingest_folder.py --root lib --kb-name ci-kb --api-key "$KEY" --host http://localhost --batch-size 2 | tee pass1.txt
+          grep -q "4 ingested, 0 failed" pass1.txt
+          python ingest_folder.py --root lib --kb-name ci-kb --api-key "$KEY" --host http://localhost | tee pass2.txt
+          grep -q "Nothing to do" pass2.txt
+          cp tests/samples/$(ls tests/samples | sed -n 10p) lib/new.pdf
+          python ingest_folder.py --root lib --kb-name ci-kb --api-key "$KEY" --host http://localhost | tee pass3.txt
+          grep -q "1 ingested, 0 failed" pass3.txt
       - name: Logs on failure
         if: failure()
         working-directory: ragflow/docker

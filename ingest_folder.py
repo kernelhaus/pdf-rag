@@ -196,7 +196,7 @@ def upload_batch(host: str, api_key: str, kb_id: str, files: list[Path]) -> dict
 
 
 def trigger_parse(host: str, api_key: str, kb_id: str, doc_ids: list[str]):
-    url = f"{host}/api/v1/datasets/{kb_id}/chunks"
+    url = f"{host}/api/v1/datasets/{kb_id}/documents/parse"
     resp = requests.post(
         url,
         headers={"Authorization": f"Bearer {api_key}"},
@@ -207,7 +207,8 @@ def trigger_parse(host: str, api_key: str, kb_id: str, doc_ids: list[str]):
 
 
 def poll_until_parsed(host: str, api_key: str, kb_id: str, doc_ids: list[str]) -> dict:
-    """Returns {doc_id: status} once all are done/failed or timeout reached."""
+    """Returns {doc_id: DONE|FAIL|TIMEOUT}. RAGFlow 1.0 reports progress 0..1
+    (1 = finished); `run` is null, so completion = progress>=1 with chunks."""
     url = f"{host}/api/v1/datasets/{kb_id}/documents"
     deadline = time.time() + MAX_POLL_MINUTES * 60
     pending = set(doc_ids)
@@ -217,14 +218,19 @@ def poll_until_parsed(host: str, api_key: str, kb_id: str, doc_ids: list[str]) -
         resp = requests.get(
             url,
             headers={"Authorization": f"Bearer {api_key}"},
-            params={"id": list(pending)},
+            params={"page_size": 1000},
             timeout=30,
         )
         resp.raise_for_status()
         for doc in resp.json().get("data", {}).get("docs", []):
-            status = doc.get("run")  # RAGFlow statuses: UNSTART/RUNNING/DONE/FAIL
-            if status in ("DONE", "FAIL"):
-                final[doc["id"]] = status
+            if doc["id"] not in pending:
+                continue
+            status = str(doc.get("ingestion_status") or "").upper()
+            if status in ("FAIL", "FAILED"):
+                final[doc["id"]] = "FAIL"
+                pending.discard(doc["id"])
+            elif (doc.get("progress") or 0) >= 1:
+                final[doc["id"]] = "DONE" if (doc.get("chunk_count") or 0) > 0 else "FAIL"
                 pending.discard(doc["id"])
         if pending:
             time.sleep(POLL_INTERVAL_SEC)
