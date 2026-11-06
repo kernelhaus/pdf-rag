@@ -44,7 +44,7 @@ key = r.json()["data"]["token"]
 auth = {"Authorization": f"Bearer {key}"}
 Path("api_key.txt").write_text(key)
 
-body = {"name": "ci-kb"}
+body = {"name": "ci-kb", "parse_type": 1, "parser_id": "general"}
 if a.embd:
     body["embedding_model"] = a.embd
 r = requests.post(f"{H}/api/v1/datasets", headers=auth, json=body)
