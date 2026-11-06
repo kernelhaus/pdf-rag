@@ -10,7 +10,7 @@ import requests
 ap = argparse.ArgumentParser()
 ap.add_argument("--host", default="http://localhost")
 ap.add_argument("--pdfs", required=True)
-ap.add_argument("--embd", default="")
+ap.add_argument("--embd", default="BAAI/bge-small-en-v1.5", help="TEI model name (must match TEI_MODEL)")
 ap.add_argument("--limit", type=int, default=5)
 ap.add_argument("--query", default="electrode potential")
 a = ap.parse_args()
@@ -44,9 +44,15 @@ key = r.json()["data"]["token"]
 auth = {"Authorization": f"Bearer {key}"}
 Path("api_key.txt").write_text(key)
 
-body = {"name": "ci-kb", "parse_type": 1, "parser_id": "general"}
-if a.embd:
-    body["embedding_model"] = a.embd
+# Bind the built-in (TEI) embedding model as the tenant default. Without this
+# the ingest pipeline fails with "encoder resolution returned nil".
+r = requests.patch(f"{H}/api/v1/models/default", headers={"Authorization": tok}, timeout=60,
+                   json={"model_provider": "Builtin", "model_instance": "Local",
+                         "model_type": "embedding", "model_name": a.embd})
+print("set default embedding", r.status_code, r.text[:300])
+
+body = {"name": "ci-kb", "parse_type": 1, "parser_id": "general",
+        "embedding_model": f"{a.embd}@Local@Builtin"}
 r = requests.post(f"{H}/api/v1/datasets", headers=auth, json=body)
 print("dataset", r.status_code, r.text[:400])
 if r.status_code != 200 or r.json().get("code") != 0:
@@ -64,6 +70,7 @@ if r.status_code != 200 or r.json().get("code") != 0:
     die("parse trigger", r)
 
 deadline = time.time() + 40 * 60
+last, last_change = None, time.time()
 while time.time() < deadline:
     r = requests.get(f"{H}/api/v1/datasets/{kb}/documents", headers=auth, params={"page_size": 100})
     docs = r.json()["data"]["docs"]
@@ -71,6 +78,10 @@ while time.time() < deadline:
     print(json.dumps(st)[:600])
     if all(d.get("run") in ("DONE", "FAIL", "3", "4") for d in docs):
         break
+    if st != last:
+        last, last_change = st, time.time()
+    elif time.time() - last_change > 600:
+        die("no progress for 10 minutes (stalled)")
     time.sleep(20)
 bad = [d["name"] for d in docs if d.get("run") not in ("DONE", "3")]
 if bad:
