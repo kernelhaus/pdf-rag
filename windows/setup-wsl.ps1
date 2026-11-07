@@ -15,6 +15,8 @@ param(
   [switch]$SkipInstallStack                     # for testing the Windows half only
 )
 $ErrorActionPreference = "Stop"
+# Defensive: strip stray quotes/whitespace that command-line quoting can leave on paths
+$InstallDir = $InstallDir.Trim().Trim('"'); $PdfDir = $PdfDir.Trim().Trim('"')
 $Distro = "pdfsearch"
 $RootfsUrl = "https://releases.ubuntu.com/noble/ubuntu-24.04.5-wsl-amd64.wsl"
 $RootfsSha = "bb415d824822c4b878125729af451a5d18fb13d1cf5cbed9a7393ad64ac6039e"
@@ -39,6 +41,7 @@ function WslRun([string]$cmd) { & wsl.exe -d $Distro -u root -- bash -lc $cmd; i
 
 try {
 Step "Checking Windows"
+Write-Host "InstallDir=[$InstallDir] PdfDir=[$PdfDir] RamGB=$RamGB Cpus=$Cpus Model=$Model"
 if ([Environment]::OSVersion.Version.Build -lt 19041) { Fail "Windows 10 2004 (build 19041) or newer is required." }
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { Fail "Run as Administrator." }
 if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") { Fail "This build needs a 64-bit Intel/AMD PC (found $env:PROCESSOR_ARCHITECTURE)." }

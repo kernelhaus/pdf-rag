@@ -78,6 +78,9 @@ begin
   ModelCombo.Items.Add('Fast, English (bge-small, needs ~12 GB RAM)');
   ModelCombo.Items.Add('Best quality, multilingual (bge-m3, needs 32 GB RAM or more)');
   ModelCombo.ItemIndex := 0;
+
+  if ExpandConstant('{param:pdfdir|}') <> '' then PdfPage.Values[0] := ExpandConstant('{param:pdfdir|}');
+  if ExpandConstant('{param:datadir|}') <> '' then DataPage.Values[0] := ExpandConstant('{param:datadir|}');
 end;
 
 function ModelName: String;
@@ -85,9 +88,17 @@ begin
   if ModelCombo.ItemIndex = 1 then Result := 'BAAI/bge-m3' else Result := 'BAAI/bge-small-en-v1.5';
 end;
 
+{ Quote a path for a Windows command line: a trailing backslash would otherwise escape the closing quote. }
+function Q(Path: String): String;
+begin
+  Path := Trim(Path);
+  if (Length(Path) > 0) and (Path[Length(Path)] = '\') then Path := Path + '\';
+  Result := '"' + Path + '"';
+end;
+
 function SetupArgs(Param: String): String;
 begin
-  Result := '-InstallDir ""' + DataPage.Values[0] + '"" -PdfDir ""' + PdfPage.Values[0] + '"" -RamGB ' + RamEdit.Text +
+  Result := '-InstallDir ' + Q(DataPage.Values[0]) + ' -PdfDir ' + Q(PdfPage.Values[0]) + ' -RamGB ' + RamEdit.Text +
             ' -Cpus ' + CpuEdit.Text + ' -Model ' + ModelName;
 end;
 
@@ -114,7 +125,7 @@ var
   Code: Integer;
   Params: String;
 begin
-  if (CurStep = ssPostInstall) and (not WizardSilent) then
+  if (CurStep = ssPostInstall) and ((not WizardSilent) or (ExpandConstant('{param:runsetup|0}') = '1')) then
   begin
     Params := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}') + '\windows\setup-wsl.ps1" ' + SetupArgs('');
     if not Exec('powershell.exe', Params, '', SW_SHOW, ewWaitUntilTerminated, Code) then
