@@ -7,7 +7,7 @@ Searches your PDF library (including scanned pages) completely offline. Nothing 
 - 16 GB RAM or more (32 GB+ recommended for the "best quality" model)
 - Virtualization enabled in BIOS (normally on by default)
 - Free space for the search index on the drive you choose: roughly 5-10% of your PDF size, more for scanned documents
-- Internet **only during installation** (about 10 GB of downloads)
+- Internet **only during installation** (about 6-10 GB of downloads)
 
 ## Install
 1. Run `PDFSearch-Setup.exe`, approve the administrator prompt.
@@ -22,9 +22,31 @@ Searches your PDF library (including scanned pages) completely offline. Nothing 
 Double-click the **PDF Search** desktop icon. Your browser opens at http://localhost after the engine has started (the first start of the day takes a minute or two).
 Sign in with the details from `login.txt`, open **Knowledge base** > **Library**, and search.
 
+## First use: try it with a small test batch
+Before the whole library, test with 20 sample PDFs (these are physics papers, only to prove it works):
+1. Download https://github.com/kernelhaus/pdf-rag/releases/download/test-data/test-pdfs.zip
+2. Unzip it into your PDF folder.
+3. Wait about 30 to 60 minutes. Then sign in at http://localhost and open **Knowledge base > Library**: the documents show a parsing status. When they say success, type a word from a paper into the search box.
+4. Now try 10 to 20 of your own PDFs, including a scanned one, and judge the results on your real material.
+When happy, point the installer at the full library (or copy it into the PDF folder).
+
+## How to search
+1. Double-click **PDF Search**. Wait for the browser (the first start can take a few minutes; a blank page means "still starting", refresh after a minute).
+2. Sign in (email and password are in `login.txt` in the index folder).
+3. Open **Knowledge base**, click **Library**, then use **Retrieval testing** (or the search box) and type what you are looking for in plain words, for example "corrosion rate of 316L in chloride solution".
+4. Results show the matching passage and the document name and page. Click it to open the source.
+
+Tips: search by meaning, not exact words; use several descriptive words; try different wording if nothing shows. Scanned PDFs are read by OCR, which takes much longer and can miss text in poor scans.
+
 ## Adding PDFs
 Copy them into your PDF folder (sub-folders are fine). New and changed files are picked up automatically every 30 minutes while the PC is on.
 Indexing a large library takes days or weeks; search works on whatever is already indexed. Your files are only read, never changed.
+
+## Slow, or nothing found
+- **Not everything is searchable yet:** indexing a large library takes days. Library > the dataset shows how many files are done. Leave the PC on; it continues by itself.
+- **First start of the day is slow:** it takes a couple of minutes for the engine to wake.
+- **Do not click inside the installer's PowerShell window while it runs.** A click can freeze it; press Esc to continue.
+- **PC is slow while indexing:** lower the memory/CPU limits by re-running the installer.
 
 ## Something is wrong
 1. Start menu > PDF Search > **Collect diagnostics**, then send `pdfsearch-diagnostics.zip` from your Desktop. It contains no passwords or PDF content.
