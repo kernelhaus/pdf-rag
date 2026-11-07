@@ -11,7 +11,7 @@ param(
   [int]$Cpus = 4,
   [string]$Model = "BAAI/bge-small-en-v1.5",
   [string]$AdminPassword = "",
-  [string]$AppDir = $PSScriptRoot + "\..",
+  [string]$AppDir = "",
   [switch]$SkipInstallStack                     # for testing the Windows half only
 )
 $ErrorActionPreference = "Stop"
@@ -44,6 +44,13 @@ function WslRun([string]$cmd) { & wsl.exe -d $Distro -u root -- bash -lc $cmd; i
 try {
 Step "Checking Windows"
 Write-Host "InstallDir=[$InstallDir] PdfDir=[$PdfDir] RamGB=$RamGB Cpus=$Cpus Model=$Model"
+# Verify the install is complete before doing anything slow (antivirus can remove files).
+if(-not $AppDir){ $AppDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
+$AppDir = (Resolve-Path $AppDir).Path
+$need = @("linux\pdfsearch.conf.example","linux\install-stack.sh","linux\provision.py","linux\pdfsearch-ingest.service","ingest_folder.py")
+$missing = $need | Where-Object { -not (Test-Path (Join-Path $AppDir $_)) }
+if($missing){ Fail ("The PDF Search installation is incomplete. Looked in: $AppDir`nMissing: " + ($missing -join ", ") + "`nAn antivirus may have removed files. Add $AppDir to the antivirus exclusions, then uninstall and reinstall PDF Search.") }
+
 if ([Environment]::OSVersion.Version.Build -lt 19041) { Fail "Windows 10 2004 (build 19041) or newer is required." }
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { Fail "Run as Administrator." }
 if ((Get-CimInstance Win32_Processor | Select-Object -First 1).Architecture -ne 9) { Fail "This version needs a 64-bit Intel/AMD PC. This PC uses a different processor type (for example ARM)." }
