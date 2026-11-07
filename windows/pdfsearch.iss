@@ -134,7 +134,8 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;
-  Params, Reason: String;
+  Params: String;
+  Reason: AnsiString;
 begin
   if (CurStep = ssPostInstall) and ((not WizardSilent) or (ExpandConstant('{param:runsetup|0}') = '1')) then
   begin
@@ -147,7 +148,7 @@ begin
     else if Code <> 0 then
     begin
       if not LoadStringFromFile(DataPage.Values[0] + '\last-error.txt', Reason) then Reason := '(no reason recorded, code ' + IntToStr(Code) + ')';
-      ReasonText := Trim(Reason);
+      ReasonText := Trim(String(Reason));
       MsgBox('Setup did not complete.' + #13#10 + #13#10 + ReasonText + #13#10 + #13#10 +
              'Details: ' + DataPage.Values[0] + '\setup.log' + #13#10 +
              'You can retry from Start menu > PDF Search > "Finish setup".', mbError, MB_OK);
