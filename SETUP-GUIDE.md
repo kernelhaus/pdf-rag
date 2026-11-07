@@ -33,3 +33,13 @@ Indexing a large library takes days or weeks; search works on whatever is alread
 
 ## Uninstall
 Windows Settings > Apps > PDF Search. To also delete the search index (never your PDFs), run `windows\uninstall-wsl.ps1`.
+
+## "Email and password do not match" when signing in
+
+This happens if the installer was run more than once. Open PowerShell (Start menu > type PowerShell > Enter) and paste this one line:
+
+```
+irm https://raw.githubusercontent.com/kernelhaus/pdf-rag/main/windows/fix-login.ps1 -OutFile $env:TEMP\fix-login.ps1; powershell -NoProfile -ExecutionPolicy Bypass -File $env:TEMP\fix-login.ps1
+```
+
+It creates a second admin account and prints the new email and password on screen. Sign in with those.
