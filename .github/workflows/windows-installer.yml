@@ -1,0 +1,36 @@
+name: windows-installer
+on:
+  workflow_dispatch:
+  push:
+    paths: ["windows/**", "linux/**", ".github/workflows/windows-installer.yml"]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse-check PowerShell
+        shell: pwsh
+        run: |
+          foreach ($f in Get-ChildItem windows\*.ps1) {
+            $e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$e)
+            if ($e) { $e | Out-String | Write-Host; throw "syntax errors in $($f.Name)" }
+          }
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build installer
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\pdfsearch.iss'
+      - name: Silent install smoke test
+        shell: pwsh
+        run: |
+          # Installs files only (no WSL on runners); setup script is exercised for its failure path.
+          New-Item -ItemType Directory C:\pdfs | Out-Null
+          $p = Start-Process dist\PDFSearch-Setup.exe -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /DIR=C:\PDFSearch /LOG=C:\inst.log" -Wait -PassThru
+          Get-Content C:\inst.log -Tail 15
+          foreach ($f in "windows\setup-wsl.ps1","windows\start-pdfsearch.ps1","linux\install-stack.sh","ingest_folder.py") {
+            if (-not (Test-Path "C:\PDFSearch\$f")) { throw "missing $f" }
+          }
+          if (-not (Test-Path "$env:PUBLIC\Desktop\PDF Search.lnk")) { throw "desktop shortcut missing" }
+          $u = Get-ChildItem C:\PDFSearch\unins*.exe | Select-Object -First 1
+          Start-Process $u.FullName -ArgumentList "/VERYSILENT" -Wait
+      - uses: actions/upload-artifact@v4
+        with: {name: PDFSearch-Setup, path: dist/PDFSearch-Setup.exe, retention-days: 14}
