@@ -23,29 +23,38 @@ for line in open(a.conf):
 H = a.host.rstrip("/")
 
 
+def _json(raw):
+    """Parse JSON if possible; plain-text bodies (e.g. ping) become {"raw": ...}."""
+    try:
+        v = json.loads(raw or b"{}")
+        return v if isinstance(v, dict) else {"raw": v}
+    except ValueError:
+        return {"raw": raw[:300].decode(errors="replace")}
+
+
 def call(method, path, body=None, headers=None, raw=False):
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(H + path, data=data, method=method,
                                  headers={"Content-Type": "application/json", **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
-            return (r.status, dict(r.headers), json.loads(r.read() or b"{}"))
+            return (r.status, dict(r.headers), _json(r.read()))
     except urllib.error.HTTPError as e:
         txt = e.read()
-        try:
-            return (e.code, dict(e.headers), json.loads(txt))
-        except Exception:
-            return (e.code, dict(e.headers), {"raw": txt[:300].decode(errors="replace")})
+        return (e.code, dict(e.headers), _json(txt))
 
 
 print("Waiting for RAGFlow to come up...")
 deadline = time.time() + a.wait_minutes * 60
+last = None
 while True:
     try:
         if call("GET", "/api/v1/system/ping")[0] < 500:
             break
-    except Exception:
-        pass
+    except Exception as e:
+        if str(e) != last:
+            last = str(e)
+            print("  not ready yet:", last, flush=True)
     if time.time() > deadline:
         sys.exit("RAGFlow did not become ready in time (check: docker compose ps in /opt/ragflow/docker)")
     time.sleep(5)
