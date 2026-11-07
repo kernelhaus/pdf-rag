@@ -21,12 +21,14 @@ $Distro = "pdfsearch"
 $RootfsUrl = "https://releases.ubuntu.com/noble/ubuntu-24.04.5-wsl-amd64.wsl"
 $RootfsSha = "bb415d824822c4b878125729af451a5d18fb13d1cf5cbed9a7393ad64ac6039e"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+Remove-Item (Join-Path $InstallDir "last-error.txt") -ErrorAction SilentlyContinue
 $Log = Join-Path $InstallDir "setup.log"
 Start-Transcript -Path $Log -Append | Out-Null
 function Step($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
 $ProgressPreference = "SilentlyContinue"   # makes Invoke-WebRequest much faster
 function Fail($m, $code = 1) {
   Write-Host "ERROR: $m" -ForegroundColor Red
+  try { Set-Content -Path (Join-Path $InstallDir "last-error.txt") -Value $m -Encoding ascii } catch {}
   Write-Host "A detailed log is in $Log" -ForegroundColor Yellow
   Write-Host "To send us the details: Start menu > PDF Search > 'Collect diagnostics'." -ForegroundColor Yellow
   Stop-Transcript | Out-Null; exit $code
@@ -44,7 +46,7 @@ Step "Checking Windows"
 Write-Host "InstallDir=[$InstallDir] PdfDir=[$PdfDir] RamGB=$RamGB Cpus=$Cpus Model=$Model"
 if ([Environment]::OSVersion.Version.Build -lt 19041) { Fail "Windows 10 2004 (build 19041) or newer is required." }
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { Fail "Run as Administrator." }
-if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") { Fail "This build needs a 64-bit Intel/AMD PC (found $env:PROCESSOR_ARCHITECTURE)." }
+if ((Get-CimInstance Win32_Processor | Select-Object -First 1).Architecture -ne 9) { Fail "This version needs a 64-bit Intel/AMD PC. This PC uses a different processor type (for example ARM)." }
 $cs = Get-CimInstance Win32_ComputerSystem
 $vt = (Get-CimInstance Win32_Processor | Select-Object -First 1).VirtualizationFirmwareEnabled
 if (-not $cs.HypervisorPresent -and -not $vt) { Fail "Virtualization is switched off in this PC's BIOS/UEFI. Restart, enter BIOS setup, enable 'Intel Virtualization Technology' / 'SVM Mode', then run setup again." }

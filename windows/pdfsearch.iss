@@ -43,6 +43,17 @@ var
   PerfPage: TWizardPage;
   RamEdit, CpuEdit: TNewEdit;
   ModelCombo: TNewComboBox;
+  ReasonText: String;
+
+function InitializeSetup: Boolean;
+begin
+  Result := True;
+  if IsArm64 then
+  begin
+    MsgBox('PDF Search needs a 64-bit Intel/AMD PC. This PC uses an ARM processor, which the search engine does not support yet.', mbError, MB_OK);
+    Result := False;
+  end;
+end;
 
 procedure InitializeWizard;
 var
@@ -123,7 +134,7 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;
-  Params: String;
+  Params, Reason: String;
 begin
   if (CurStep = ssPostInstall) and ((not WizardSilent) or (ExpandConstant('{param:runsetup|0}') = '1')) then
   begin
@@ -134,8 +145,12 @@ begin
       MsgBox('Windows needs to restart to finish enabling its Linux feature.' + #13#10 +
              'After restarting, open the Start menu > PDF Search > "Finish setup".', mbInformation, MB_OK)
     else if Code <> 0 then
-      MsgBox('Setup did not complete (code ' + IntToStr(Code) + ').' + #13#10 +
+    begin
+      if not LoadStringFromFile(DataPage.Values[0] + '\last-error.txt', Reason) then Reason := '(no reason recorded, code ' + IntToStr(Code) + ')';
+      ReasonText := Trim(Reason);
+      MsgBox('Setup did not complete.' + #13#10 + #13#10 + ReasonText + #13#10 + #13#10 +
              'Details: ' + DataPage.Values[0] + '\setup.log' + #13#10 +
              'You can retry from Start menu > PDF Search > "Finish setup".', mbError, MB_OK);
+    end;
   end;
 end;
