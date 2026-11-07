@@ -1,0 +1,16 @@
+# PDF Search configuration (written by the Windows installer to /etc/pdfsearch/pdfsearch.conf)
+RAGFLOW_TAG=v1.0.0-rc3
+# Embedding model served locally by the bundled TEI container:
+#   BAAI/bge-small-en-v1.5  (~1.2GB RAM, fast, English)
+#   BAAI/bge-m3             (~21GB RAM, multilingual, better quality)
+#   Qwen/Qwen3-Embedding-0.6B (~25GB RAM)
+TEI_MODEL=BAAI/bge-small-en-v1.5
+# RAM the RAGFlow containers may use, in GB
+MEM_LIMIT_GB=8
+TZ=Africa/Johannesburg
+ADMIN_EMAIL=admin@pdfsearch.local
+ADMIN_PASSWORD=change-me-please
+KB_NAME=Library
+# Folder (Linux path) holding the PDFs, e.g. /mnt/d/ChemLibrary
+PDF_DIR=/mnt/d/ChemLibrary
+RESCAN_MINUTES=30

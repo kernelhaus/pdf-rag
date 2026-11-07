@@ -1,0 +1,14 @@
+[Unit]
+Description=PDF Search background indexer (scans the PDF folder, uploads new files)
+After=docker.service network.target
+Wants=docker.service
+
+[Service]
+EnvironmentFile=/etc/pdfsearch/pdfsearch.conf
+ExecStart=/usr/bin/python3 /opt/pdfsearch/ingest_folder.py --root ${PDF_DIR} --kb-name ${KB_NAME} --checkpoint-db /var/lib/pdfsearch/ingest.db --watch --watch-interval ${RESCAN_MINUTES}
+Restart=always
+RestartSec=60
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,44 @@
+name: linux-install
+# Runs the real install-stack.sh (the same script the Windows installer runs inside WSL)
+# on a clean Ubuntu runner, then proves search works via the shipped scripts.
+on:
+  workflow_dispatch:
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install requests tqdm
+      - name: Fetch sample PDFs
+        run: python tests/fetch_samples.py tests/samples
+      - name: Write config
+        run: |
+          sudo mkdir -p /etc/pdfsearch /srv/lib
+          sed -e 's#^PDF_DIR=.*#PDF_DIR=/srv/lib#' -e 's#^MEM_LIMIT_GB=.*#MEM_LIMIT_GB=6#' linux/pdfsearch.conf.example | sudo tee /etc/pdfsearch/pdfsearch.conf >/dev/null
+          sudo cp $(ls tests/samples/*.pdf | head -3) /srv/lib/
+      - name: install-stack.sh
+        run: sudo bash linux/install-stack.sh
+      - name: Indexer service picks the PDFs up
+        run: |
+          for i in $(seq 1 60); do
+            n=$(sudo sqlite3 /var/lib/pdfsearch/ingest.db "select count(*) from files where status in ('parsed','uploaded')" 2>/dev/null || echo 0)
+            echo "indexed: $n"; [ "$n" = 3 ] && break; sleep 30
+          done
+          [ "$n" = 3 ]
+          sudo systemctl is-active pdfsearch-ingest
+      - name: Re-run installer (idempotent)
+        run: sudo bash linux/install-stack.sh --no-service
+      - name: Search returns results
+        run: |
+          KEY=$(sudo cat /etc/pdfsearch/api_key)
+          KB=$(curl -s -H "Authorization: Bearer $KEY" http://localhost/api/v1/datasets | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"][0]["id"])')
+          curl -s -X POST -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' http://localhost/api/v1/retrieval -d "{\"question\":\"electrode potential\",\"dataset_ids\":[\"$KB\"]}" | tee r.json | head -c 600
+          python3 -c 'import json;d=json.load(open("r.json"));assert d["code"]==0 and d["data"]["chunks"], d'
+      - name: Logs on failure
+        if: failure()
+        run: |
+          sudo journalctl -u pdfsearch-ingest --no-pager | tail -50
+          cd /opt/ragflow/docker && sudo docker compose ps; sudo docker compose logs --tail=80

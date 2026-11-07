@@ -30,7 +30,7 @@ Notes:
     - Change detection is by file path + modified-time + size, not just path
       existing — so if he replaces a PDF with a revised version at the same
       path, it will be detected and re-ingested as a new document.
-    - Default RAGFlow host is http://localhost:9380 — change with --host if
+    - Default RAGFlow host is http://localhost (port 80) — change with --host if
       ingesting from a different machine on the same LAN.
     - This script only UPLOADS + triggers parsing. RAGFlow's own background
       workers do the chunking/embedding; this script polls until each batch's
@@ -54,7 +54,8 @@ from pathlib import Path
 import requests
 from tqdm import tqdm
 
-DEFAULT_HOST = "http://localhost:9380"
+DEFAULT_HOST = "http://localhost"
+DEFAULT_KEY_FILE = "/etc/pdfsearch/api_key"
 CHECKPOINT_DB = "ingest_checkpoint.db"
 BATCH_SIZE = 20          # files per upload batch, keeps memory/requests sane
 POLL_INTERVAL_SEC = 15   # how often to check parse status for a batch
@@ -304,7 +305,8 @@ def run_one_pass(conn: sqlite3.Connection, host: str, api_key: str, kb_id: str,
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", help="Root folder to recursively scan for PDFs")
-    ap.add_argument("--api-key", required=True, help="RAGFlow API key")
+    ap.add_argument("--api-key", default=None,
+                     help="RAGFlow API key (default: $PDFSEARCH_API_KEY, else the contents of " + DEFAULT_KEY_FILE + ")")
     ap.add_argument("--kb-name", default="ChemEng-Library", help="Knowledge base name")
     ap.add_argument("--host", default=DEFAULT_HOST, help="RAGFlow host URL")
     ap.add_argument("--list-kb", action="store_true", help="List knowledge bases and exit")
@@ -316,6 +318,12 @@ def main():
     ap.add_argument("--watch-interval", type=int, default=30,
                      help="Minutes between rescans in --watch mode (default: 30)")
     args = ap.parse_args()
+    if not args.api_key:
+        args.api_key = os.environ.get("PDFSEARCH_API_KEY", "").strip()
+        if not args.api_key and os.path.exists(DEFAULT_KEY_FILE):
+            args.api_key = open(DEFAULT_KEY_FILE).read().strip()
+        if not args.api_key:
+            ap.error("no API key: pass --api-key, set PDFSEARCH_API_KEY, or run provision.py first")
 
     if args.list_kb:
         list_kbs(args.host, args.api_key)
