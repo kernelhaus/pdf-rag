@@ -37,7 +37,8 @@ Name: "{autoprograms}\PDF Search\Stop PDF Search"; Filename: "powershell.exe"; P
 
 [Code]
 var
-  PdfPage, DataPage, PerfPage: TInputDirWizardPage;
+  PdfPage, DataPage: TInputDirWizardPage;
+  PerfPage: TWizardPage;
   RamEdit, CpuEdit: TNewEdit;
   ModelCombo: TNewComboBox;
 
@@ -55,12 +56,7 @@ begin
   DataPage.Add('Index folder:');
   DataPage.Values[0] := 'C:\PDFSearchData';
 
-  PerfPage := CreateInputDirPage(DataPage.ID, 'Performance', 'How much of this PC may PDF Search use?',
-    'More memory and CPU cores make indexing faster. Leave at least 4 GB of RAM free for Windows.', False, '');
-  PerfPage.Add('');
-  PerfPage.Edits[0].Visible := False;
-  PerfPage.PromptLabels[0].Visible := False;
-  PerfPage.Buttons[0].Visible := False;
+  PerfPage := CreateCustomPage(DataPage.ID, 'Performance', 'How much of this PC may PDF Search use? More memory and CPU cores make indexing faster. Leave at least 4 GB of RAM free for Windows.');
 
   L := TNewStaticText.Create(PerfPage);
   L.Parent := PerfPage.Surface; L.Caption := 'Memory (GB):'; L.Top := 0; L.Left := 0;
