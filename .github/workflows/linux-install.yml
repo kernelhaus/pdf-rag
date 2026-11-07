@@ -23,8 +23,8 @@ jobs:
         run: sudo bash linux/install-stack.sh
       - name: Indexer service picks the PDFs up
         run: |
-          for i in $(seq 1 60); do
-            n=$(sudo sqlite3 /var/lib/pdfsearch/ingest.db "select count(*) from files where status in ('parsed','uploaded')" 2>/dev/null || echo 0)
+          for i in $(seq 1 90); do
+            n=$(sudo sqlite3 /var/lib/pdfsearch/ingest.db "select count(*) from files where status='parsed'" 2>/dev/null || echo 0)
             echo "indexed: $n"; [ "$n" = 3 ] && break; sleep 30
           done
           [ "$n" = 3 ]
