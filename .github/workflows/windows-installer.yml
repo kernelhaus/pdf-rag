@@ -40,5 +40,8 @@ jobs:
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
-        env: {GH_TOKEN: "${{ github.token }}"}
-        run: gh release create "${{ github.ref_name }}" dist\PDFSearch-Setup.exe --title "PDF Search ${{ github.ref_name }}" --notes "Windows installer. See SETUP-GUIDE.md. Not yet validated on real x86 hardware: WSL2 steps are untested by CI."
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = "Windows installer. See SETUP-GUIDE.md. Not yet validated on real x86 hardware - the WSL2 steps are untested by CI."
+          gh release create "${{ github.ref_name }}" dist\PDFSearch-Setup.exe --title "PDF Search ${{ github.ref_name }}" --notes $notes
