@@ -22,7 +22,19 @@ New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 $Log = Join-Path $InstallDir "setup.log"
 Start-Transcript -Path $Log -Append | Out-Null
 function Step($m) { Write-Host "`n== $m" -ForegroundColor Cyan }
-function Fail($m, $code = 1) { Write-Host "ERROR: $m" -ForegroundColor Red; Stop-Transcript | Out-Null; exit $code }
+$ProgressPreference = "SilentlyContinue"   # makes Invoke-WebRequest much faster
+function Fail($m, $code = 1) {
+  Write-Host "ERROR: $m" -ForegroundColor Red
+  Write-Host "A detailed log is in $Log" -ForegroundColor Yellow
+  Write-Host "To send us the details: Start menu > PDF Search > 'Collect diagnostics'." -ForegroundColor Yellow
+  Stop-Transcript | Out-Null; exit $code
+}
+function Download($url, $out) {
+  for ($i = 1; $i -le 3; $i++) {
+    try { Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing; return } catch { Write-Warning "Download attempt $i failed: $($_.Exception.Message)"; Start-Sleep -Seconds (5 * $i) }
+  }
+  Fail "Could not download $url. Check the internet connection and run setup again."
+}
 function WslRun([string]$cmd) { & wsl.exe -d $Distro -u root -- bash -lc $cmd; if ($LASTEXITCODE -ne 0) { Fail "command failed in WSL: $cmd" } }
 
 try {
@@ -30,7 +42,10 @@ Step "Checking Windows"
 if ([Environment]::OSVersion.Version.Build -lt 19041) { Fail "Windows 10 2004 (build 19041) or newer is required." }
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { Fail "Run as Administrator." }
 if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") { Fail "This build needs a 64-bit Intel/AMD PC (found $env:PROCESSOR_ARCHITECTURE)." }
-if ((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB -lt 15) { Write-Warning "Less than 16 GB RAM: indexing will be slow; consider lowering the model/RAM settings." }
+$cs = Get-CimInstance Win32_ComputerSystem
+$vt = (Get-CimInstance Win32_Processor | Select-Object -First 1).VirtualizationFirmwareEnabled
+if (-not $cs.HypervisorPresent -and -not $vt) { Fail "Virtualization is switched off in this PC's BIOS/UEFI. Restart, enter BIOS setup, enable 'Intel Virtualization Technology' / 'SVM Mode', then run setup again." }
+if ($cs.TotalPhysicalMemory / 1GB -lt 15) { Write-Warning "Less than 16 GB RAM: indexing will be slow; consider lowering the model/RAM settings." }
 $drive = (Split-Path -Qualifier (Resolve-Path $InstallDir).Path).TrimEnd(":")
 $free = (Get-PSDrive $drive).Free / 1GB
 Write-Host ("Install drive {0}: has {1:N0} GB free" -f $drive, $free)
@@ -60,7 +75,7 @@ Step "Creating the Linux environment on $InstallDir"
 $have = (& wsl.exe -l -q 2>$null) -replace "`0", "" | Where-Object { $_.Trim() -eq $Distro }
 if (-not $have) {
   $tar = Join-Path $InstallDir "ubuntu.wsl"
-  if (-not (Test-Path $tar)) { Write-Host "Downloading Ubuntu (~350 MB)..."; Invoke-WebRequest -Uri $RootfsUrl -OutFile $tar -UseBasicParsing }
+  if (-not (Test-Path $tar)) { Write-Host "Downloading Ubuntu (~350 MB)..."; Download $RootfsUrl $tar }
   if ((Get-FileHash $tar -Algorithm SHA256).Hash.ToLower() -ne $RootfsSha) { Remove-Item $tar -Force; Fail "Ubuntu download failed its checksum; run setup again." }
   & wsl.exe --import $Distro (Join-Path $InstallDir "distro") $tar --version 2
   if ($LASTEXITCODE -ne 0) { Fail "wsl --import failed" }
@@ -93,6 +108,13 @@ $credFile = Join-Path $InstallDir "login.txt"
 Step "Installing the search engine (downloads several GB, can take a while)"
 $wslApp = (& wsl.exe -d $Distro -u root -- wslpath -a ((Resolve-Path $AppDir).Path -replace "\\", "/")).Trim()
 WslRun "rm -rf /opt/pdfsearch-src && mkdir -p /opt/pdfsearch-src && cp -r '$wslApp/linux' '$wslApp/ingest_folder.py' /opt/pdfsearch-src/ && bash /opt/pdfsearch-src/linux/install-stack.sh"
+
+Step "Checking that it answers from Windows"
+$ok = $false
+for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+  try { $ok = (Invoke-WebRequest -Uri "http://localhost/api/v1/system/ping" -UseBasicParsing -TimeoutSec 5).StatusCode -lt 500 } catch { Start-Sleep -Seconds 5 }
+}
+if (-not $ok) { Fail "The search engine installed but does not answer at http://localhost from Windows (port forwarding or still starting). Try Start menu > PDF Search, and if it persists collect diagnostics." }
 
 Step "Done"
 Write-Host "Open http://localhost  (login details saved in $credFile)" -ForegroundColor Green

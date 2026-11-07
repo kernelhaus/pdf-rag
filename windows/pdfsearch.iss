@@ -27,12 +27,14 @@ Source: "setup-wsl.ps1"; DestDir: "{app}\windows"
 Source: "start-pdfsearch.ps1"; DestDir: "{app}\windows"
 Source: "stop-pdfsearch.ps1"; DestDir: "{app}\windows"
 Source: "uninstall-wsl.ps1"; DestDir: "{app}\windows"
+Source: "collect-diagnostics.ps1"; DestDir: "{app}\windows"
 Source: "..\SETUP-GUIDE.md"; DestDir: "{app}"; Flags: isreadme
 
 [Icons]
 Name: "{autodesktop}\PDF Search"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\windows\start-pdfsearch.ps1"""; Comment: "Open PDF Search"
 Name: "{autoprograms}\PDF Search\PDF Search"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\windows\start-pdfsearch.ps1"""
 Name: "{autoprograms}\PDF Search\Finish setup (re-run after restart)"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\windows\setup-wsl.ps1"" {code:SetupArgs}"
+Name: "{autoprograms}\PDF Search\Collect diagnostics"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\windows\collect-diagnostics.ps1"""
 Name: "{autoprograms}\PDF Search\Stop PDF Search"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\windows\stop-pdfsearch.ps1"""
 
 [Code]
